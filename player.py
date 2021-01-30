@@ -3,6 +3,7 @@ import select
 import sys
 
 
+
 class Client:
 
     def __init__(self, name):
@@ -23,6 +24,7 @@ class Client:
     def handle_connection(self):
         while True:
             r, _, _ = select.select([self.s, sys.stdin], [], [])
+            print(r)
             for streams in r:
                 if streams == self.s:
                     data = self.s.recv(1024).decode()
@@ -35,5 +37,5 @@ class Client:
 
 
 
-name = input('Enter name: ')
-Client(name)
+# name = input('Enter name: ')
+# Client(name)
