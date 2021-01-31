@@ -63,7 +63,7 @@ class GameServer:
 
         self.s.close()
 
-    def message_handler(self, msg_object, player):
+    def message_handler(self, msg_object, player=None):
         for msg_type in msg_object.keys():
             if msg_type == 'chat_msg':
                 self.handle_chat_msg(msg_object, player)
@@ -82,6 +82,7 @@ class GameServer:
         self.server_broadcast(msg_object, player)
 
     def handle_game_action_msg(self, game_object, player):
+        print(f'Game object {game_object} -----player {player.username}')
         game_id = player.game_id
 
         if game_object['type'] == 'get':
@@ -101,6 +102,7 @@ class GameServer:
     def server_broadcast(self, msg, player=None, game=None, single_player=True):
         if game:
             if player and single_player:
+                print(f'Send {msg} to {player.username}')
                 player.message_sender(msg)  # current player
             else:
                 for user in self.games[game].players:
@@ -123,8 +125,7 @@ class GameServer:
             return True
 
     def remove_player(self, player):
-        self.message_handler(
-            {'server_msg': f'{player.username} disconnected.'})
+        self.message_handler({'server_msg': f'{player.username} disconnected.'})
         del self.players[player.username]
 
 #################### GAME ##################################
@@ -171,6 +172,7 @@ class Game:
     def create_game_action(self, action_type, content, multi=False, multi_with=False, player=None):
         if player is None:
             player = self.current_player
+        print(f'Create g{action_type} dla gracza {player.username}')
         data = {action_type: content}
         self.create_game_object(data, multi, multi_with, player)
 
@@ -187,15 +189,16 @@ class Game:
         if self.player_stack:
             self.current_player = self.player_stack.pop()
         else:
-            self.player_stack = self.players
+            self.player_stack = list(self.players)
             self.current_player = self.player_stack.pop()
+        print(f'Nastepna runda dla: {self.current_player.username}')
         self.create_game_action('get_letter', '')
 
     def gen_hidden_password(self):
         return ''.join([x if x in self.chosen_letters else '_' for x in self.password])
 
     def handle_game_recv(self, game_obj, player):
-        # game_obj {action: msg}; player - sending player
+        print(f'otrzymano {game_obj} od {player.username}')
         for action in game_obj.keys():
             if action == 'guess':
                 guess = game_obj[action]
@@ -206,20 +209,19 @@ class Game:
                     self.check_password(guess)
             elif action == 'chat_msg':
                 content = f'<{player.username}> {game_obj[action]}'
-                self.create_game_action(
-                    'chat_msg', content, True, player=player)
+                self.create_game_action('chat_msg', content, True, player=player)
 
     def check_password(self, password):
         if password == self.password:
-            print('awesome')
+            pass
         else:
-            print('dupa')
+            pass
 
     def check_letter(self, letter):
         if letter in self.password:
-            print('great')
+            pass
         else:
-            print('dupa')
+            pass
         password = self.gen_hidden_password()
         self.create_game_action('game_password', password, True, True)
         self.game_round()
