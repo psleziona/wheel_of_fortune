@@ -1,8 +1,4 @@
-import sys
-import socket
-import select
-import time
-import pickle
+import sys, socket, select, time, pickle
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMainWindow
@@ -30,11 +26,9 @@ class ConnectionHandler(QThread):
                 self.finished.emit()
                 break
 
-    def msg_getter(self, msg):
+    def msg_sender(self, msg):
         data = pickle.dumps(msg)
         self.s.send(data)
-
-
 
 
 class ClientWindow(QMainWindow):
@@ -72,7 +66,7 @@ class ClientWindow(QMainWindow):
         self.sendBtn = QtWidgets.QPushButton(self)
         self.sendBtn.setGeometry(QtCore.QRect(490, 580, 89, 25))
         self.sendBtn.setObjectName("sendBtn")
-        self.sendBtn.clicked.connect(lambda: self.handle_sends(self.sending_letter))
+        self.sendBtn.clicked.connect(self.handle_sends)
 
         self.startBtn.setText("Start game")
         self.startBtn.clicked.connect(self.get_name)
@@ -83,9 +77,8 @@ class ClientWindow(QMainWindow):
         self.username = self.nameField.toPlainText()
         self.client = ConnectionHandler(self.username)
         self.client.msg.connect(self.handle_recv)
-        self.sender.connect(self.client.msg_getter)
+        self.sender.connect(self.client.msg_sender)
         self.client.start()
-
 
     def handle_recv(self, msg):
         print(msg)
@@ -93,32 +86,29 @@ class ClientWindow(QMainWindow):
             for msg_types in msg.keys():
                 if msg_types == 'chat_msg':
                     self.chat_messages += msg[msg_types] + '\n'
-                elif msg_types == 'server_msg' or msg_types == 'server_message':
+                elif msg_types == 'server_msg':
                     self.chat_messages += f'<Server> {msg[msg_types]}' + '\n'
-                elif msg_types == 'game_display':
+                elif msg_types == 'game_password':
                     self.game_display(msg[msg_types])
-                elif msg_types == 'player_info':
-                    pass
+                elif msg_types == 'game_msg':
+                    self.chat_messages += f'<Game> {msg[msg_types]}' + '\n'
                 elif msg_types == 'get_letter':
                     self.choose_letter()
         except AttributeError:
             self.chat_messages += msg
         self.update_display()
 
-
     def handle_sends(self, send_letter):
-        if send_letter:
-            letter = self.msgField.toPlainText()
-            self.sender.emit({'game_action': letter})
-            self.msgField.setText('')
-            self.sending_letter = False
-            return None
         msg = self.msgField.toPlainText()
-        self.sender.emit({'chat_msg': msg})
-        self.chat_messages += f'<You> {msg}' + '\n'
-        self.update_display()
+        if self.sending_letter:
+            self.create_game_action('guess', msg)
+            self.sending_letter = False
+        else:
+            self.create_game_action('chat_msg', msg)
+            self.chat_messages += f'<You> {msg}' + '\n'
+            self.update_display()
         self.msgField.setText('')
-    
+
     def update_display(self):
         self.serverDisplay.setText(self.chat_messages)
 
@@ -126,8 +116,19 @@ class ClientWindow(QMainWindow):
         self.gameDisplay.setText(display)
 
     def choose_letter(self):
-        self.sending_letter = True
         self.msgField.setText('Please type your letter or guess password: ')
+        self.sending_letter = True
+
+    def create_game_action(self, action, content):
+        self.create_game_object({action: content})
+
+    def create_game_object(self, data):
+        game_obj = {'game_msg': {
+            'type': 'get',
+            'content': data # {action: msg}
+        }}
+        self.sender.emit(game_obj)
+
 
 app = QApplication(sys.argv)
 win = ClientWindow()
