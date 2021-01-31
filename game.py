@@ -82,7 +82,6 @@ class GameServer:
         self.server_broadcast(msg_object, player)
 
     def handle_game_action_msg(self, game_object, player):
-        print(f'Game object {game_object} -----player {player.username}')
         game_id = player.game_id
 
         if game_object['type'] == 'get':
@@ -91,34 +90,27 @@ class GameServer:
 
         elif game_object['type'] == 'post':
             msg = game_object['content']
-            if game_object['multicast']:
-                if game_object['multicast-with']:
+            to_other = game_object.get('multicast', False)
+            if to_other:
+                if to_other == 'with':
                     self.server_broadcast(msg, game=game_id) #all
                 else:
-                    self.server_broadcast(msg, player, game_id, False) # all without player
+                    self.server_broadcast(msg, player, game_id) # all without player
             else:
-                self.server_broadcast(msg, player, game_id) # player
+                self.server_broadcast(msg, player, single=True) # player
 
-    def server_broadcast(self, msg, player=None, game=None, single_player=True):
-        if game:
-            if player and single_player:
-                print(f'Send {msg} to {player.username}')
-                player.message_sender(msg)  # current player
-            else:
-                for user in self.games[game].players:
-                    if user == player: # if parametr then didnt recv
-                        continue
-                    else:
-                        user.message_sender(msg)  # all without current
+
+    def server_broadcast(self, msg, player=None, game=None, single=False):
+        print(f'Msg: {msg} from {player} game {game} single {single}')
+        if single and player: # player must be given
+            player.message_sender(msg)
         else:
             for user in self.players.values():
-                if player == user:
+                if (game and user.game_id != game) or (game and player and user.game_id != player.game_id) or (player and user == player):
                     continue
                 user.message_sender(msg)
 
-
 #################### USERS ##################################
-
 
     def check_username(self, username):
         if username in self.players:
@@ -131,13 +123,14 @@ class GameServer:
 #################### GAME ##################################
 
     def init_game(self):
-        game = Game(self, *self.players.values())
         game_id = self.gen_id()
 
         for player in self.players.values():
             player.game_id = game_id
 
+        game = Game(self, *self.players.values())
         self.games[game_id] = game
+        game.game_init()
 
     def gen_id(self):
         g_id = ''
@@ -158,21 +151,20 @@ class Game:
         self.password_letters = set(self.password)
         self.gen_hidden_password()
 
-        self.game_init()
 
     def create_game_object(self, content, multi, multi_with, player):
         game_msg = {'game_msg': {
             'type': 'post',
-            'content': content,  # object {'action': 'content'}
-            'multicast': multi,
-            'multicast-with': multi_with
+            'content': content
         }}
+        if multi:
+            game_msg['game_msg']['multicast'] = 'with' if multi_with else 'without'
+
         self.server.message_handler(game_msg, player)
 
     def create_game_action(self, action_type, content, multi=False, multi_with=False, player=None):
         if player is None:
             player = self.current_player
-        print(f'Create g{action_type} dla gracza {player.username}')
         data = {action_type: content}
         self.create_game_object(data, multi, multi_with, player)
 
@@ -198,7 +190,7 @@ class Game:
         return ''.join([x if x in self.chosen_letters else '_' for x in self.password])
 
     def handle_game_recv(self, game_obj, player):
-        print(f'otrzymano {game_obj} od {player.username}')
+        # print(f'otrzymano {game_obj} od {player.username}')
         for action in game_obj.keys():
             if action == 'guess':
                 guess = game_obj[action]
