@@ -2,6 +2,7 @@ import sys, socket, select, time, pickle
 from PyQt5 import QtWidgets, QtCore
 from PyQt5.QtCore import QObject, QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QMainWindow
+from game import Message
 
 
 class ConnectionHandler(QThread):

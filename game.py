@@ -6,6 +6,13 @@ import random
 import string
 import pickle
 import time
+import random
+
+class Message:
+
+    def __init__(self, type_, content):
+        self.type_ = type_
+        self.content = content
 
 
 class HandlePlayer:
@@ -18,7 +25,11 @@ class HandlePlayer:
         self.server = server
 
     def handle_connection(self):
+        # ms = Message('server_msg', f'Witaj {self.username}')
+        # self.message_sender(ms) zbudowanie klasy do obslugi wiadomosci 
+
         self.message_sender({'server_msg': f'Witaj {self.username}'})
+        
         while True:
             try:
                 data = pickle.loads(self.sock.recv(1024))
@@ -146,10 +157,16 @@ class Game:
         self.current_player = self.player_stack.pop()
         self.server = server
 
-        self.password = 'ala ma kota'
+        self.password = self.get_password_from_file()
         self.chosen_letters = [' ']
         self.password_letters = set(self.password)
         self.gen_hidden_password()
+
+    
+    def get_password_from_file(self):
+        with open('game_passwords.txt') as f:
+            sentences = f.readlines()
+            return random.choice(sentences)
 
 
     def create_game_object(self, content, multi, multi_with, player):
@@ -190,7 +207,6 @@ class Game:
         return ''.join([x if x in self.chosen_letters else '_' for x in self.password])
 
     def handle_game_recv(self, game_obj, player):
-        # print(f'otrzymano {game_obj} od {player.username}')
         for action in game_obj.keys():
             if action == 'guess':
                 guess = game_obj[action]
@@ -219,4 +235,6 @@ class Game:
         self.game_round()
 
 
-GameServer()
+if __name__ == '__main__':
+    print('Server start')
+    GameServer()
